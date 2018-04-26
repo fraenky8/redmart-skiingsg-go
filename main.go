@@ -30,7 +30,7 @@ type Route struct {
 	Nodes *[]*Node
 }
 
-var Routes []*Route
+var Routes = make([]*Route, 0)
 
 func main() {
 
@@ -46,17 +46,10 @@ func main() {
 		return
 	}
 
-	Routes = make([]*Route, 0)
-
-	//dfs(graph)
 	addNeighbours(graph)
-
-	//for _, nodes := range *graph {
-	//	for _, node := range nodes {
-	//		fmt.Println(node.print())
-	//	}
-	//}
-	dfsAL(graph)
+	dfs(graph)
+	// concurrent version - not necessarily better performance!
+	//dfsGo(graph)
 
 	if len(Routes) == 0 {
 		fmt.Println("no routes found!!")
@@ -84,48 +77,27 @@ func main() {
 func dfs(graph *[][]*Node) {
 	for _, nodes := range *graph {
 		for _, node := range nodes {
+
+			if !node.IsSource {
+				continue
+			}
+
+			visited := make(map[*Node]bool)
 			parents := make(map[*Node]*Node)
-			visit(node, graph, parents)
+
+			visitGo(node, parents, visited)
 			collectRoutes(parents)
 		}
 	}
 }
 
-func visit(node *Node, graph *[][]*Node, parents map[*Node]*Node) {
-	north := node.Row-1 >= 0 && (*graph)[node.Row-1][node.Col].Value < node.Value
-	if north {
-		parents[(*graph)[node.Row-1][node.Col]] = node
-		visit((*graph)[node.Row-1][node.Col], graph, parents)
-	}
-
-	east := node.Col+1 < len((*graph)[node.Row]) && (*graph)[node.Row][node.Col+1].Value < node.Value
-	if east {
-		parents[(*graph)[node.Row][node.Col+1]] = node
-		visit((*graph)[node.Row][node.Col+1], graph, parents)
-	}
-
-	south := node.Row+1 < len(*graph) && (*graph)[node.Row+1][node.Col].Value < node.Value
-	if south {
-		parents[(*graph)[node.Row+1][node.Col]] = node
-		visit((*graph)[node.Row+1][node.Col], graph, parents)
-	}
-
-	west := node.Col-1 >= 0 && (*graph)[node.Row][node.Col-1].Value < node.Value
-	if west {
-		parents[(*graph)[node.Row][node.Col-1]] = node
-		visit((*graph)[node.Row][node.Col-1], graph, parents)
-	}
-}
-
-func dfsAL(graph *[][]*Node) {
+func dfsGo(graph *[][]*Node) {
 
 	var wg sync.WaitGroup
 	var mux sync.Mutex
 
-	// maximal goroutines at once
-	var sem = make(chan int, 100)
-
-	i := 0;
+	// maximal goroutines at once *better performance to limit the amount*
+	var sem = make(chan int, 50)
 
 	for _, nodes := range *graph {
 		for _, node := range nodes {
@@ -133,8 +105,6 @@ func dfsAL(graph *[][]*Node) {
 			if !node.IsSource {
 				continue
 			}
-
-			i++
 
 			wg.Add(1)
 			go func(node *Node, wg *sync.WaitGroup, mux *sync.Mutex, sem chan int) {
@@ -144,22 +114,20 @@ func dfsAL(graph *[][]*Node) {
 				visited := make(map[*Node]bool)
 				parents := make(map[*Node]*Node)
 
-				visitAL(node, parents, visited)
+				visitGo(node, parents, visited)
 
 				mux.Lock()
 				defer mux.Unlock()
 				collectRoutes(parents)
 
-				<- sem
+				<-sem
 			}(node, &wg, &mux, sem)
 		}
 	}
 	wg.Wait()
-
-	fmt.Printf("goroutines (source-Nodes): %v\n", i)
 }
 
-func visitAL(node *Node, parents map[*Node]*Node, visited map[*Node]bool) {
+func visitGo(node *Node, parents map[*Node]*Node, visited map[*Node]bool) {
 
 	visited[node] = true
 
@@ -168,7 +136,7 @@ func visitAL(node *Node, parents map[*Node]*Node, visited map[*Node]bool) {
 			continue
 		}
 		parents[n] = node
-		visitAL(n, parents, visited)
+		visitGo(n, parents, visited)
 	}
 }
 
