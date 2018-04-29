@@ -85,7 +85,7 @@ func dfs(graph *[][]*Node) {
 			visited := make(map[*Node]bool)
 			parents := make(map[*Node]*Node)
 
-			visitGo(node, parents, visited)
+			visit(node, parents, visited)
 			collectRoutes(parents)
 		}
 	}
@@ -114,7 +114,7 @@ func dfsGo(graph *[][]*Node) {
 				visited := make(map[*Node]bool)
 				parents := make(map[*Node]*Node)
 
-				visitGo(node, parents, visited)
+				visit(node, parents, visited)
 
 				mux.Lock()
 				defer mux.Unlock()
@@ -127,7 +127,7 @@ func dfsGo(graph *[][]*Node) {
 	wg.Wait()
 }
 
-func visitGo(node *Node, parents map[*Node]*Node, visited map[*Node]bool) {
+func visit(node *Node, parents map[*Node]*Node, visited map[*Node]bool) {
 
 	visited[node] = true
 
@@ -136,7 +136,7 @@ func visitGo(node *Node, parents map[*Node]*Node, visited map[*Node]bool) {
 			continue
 		}
 		parents[n] = node
-		visitGo(n, parents, visited)
+		visit(n, parents, visited)
 	}
 }
 
